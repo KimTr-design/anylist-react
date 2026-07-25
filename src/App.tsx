@@ -31,9 +31,20 @@ export default function App() {
     setNewListId(null)
   }
 
+  async function handleDeleteList(listId: string) {
+    await dataStore.deleteList(listId)
+    setLists(prev => {
+      const next = prev.filter(l => l.id !== listId)
+      if (activeListId === listId) {
+        setActiveListId(next.length > 0 ? next[0].id : null)
+      }
+      return next
+    })
+  }
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="flex flex-col items-center gap-12 py-[100px]">
+      <div className="flex flex-col items-center gap-6 sm:gap-12 py-12 sm:py-[100px] px-4 sm:px-0">
         <AppHeader />
         <ListTabs
           lists={lists}
@@ -42,6 +53,7 @@ export default function App() {
           onSelect={id => { setActiveListId(id); setNewListId(null) }}
           onAddNew={handleAddNew}
           onRename={handleRename}
+          onDeleteList={handleDeleteList}
         />
         {activeListId && (
           <ListScreen key={activeListId} listId={activeListId} />

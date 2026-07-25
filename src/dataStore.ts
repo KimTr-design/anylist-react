@@ -1,56 +1,55 @@
 import type { List, ListItem } from './types'
 
-const delay = (ms = 80) => new Promise<void>(r => setTimeout(r, ms))
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api/v1'
 
-const listsMap = new Map<string, List>()
-const itemsMap = new Map<string, ListItem[]>()
+interface ApiList {
+  id: number
+  name: string
+  created_at: string
+  updated_at: string
+}
 
-// Seed: Restaurants list
-const restaurantId = crypto.randomUUID()
-const amenitiesId = crypto.randomUUID()
+interface ApiItem {
+  id: number
+  list_id: number
+  value: string
+  description: string
+  position: number
+  created_at: string
+  updated_at: string
+}
 
-listsMap.set(restaurantId, {
-  id: restaurantId,
-  name: 'Restaurants',
-  createdAt: new Date(Date.now() - 1000).toISOString(),
-  updatedAt: new Date(Date.now() - 1000).toISOString(),
-})
+function toList(l: ApiList): List {
+  return {
+    id: String(l.id),
+    name: l.name,
+    createdAt: l.created_at,
+    updatedAt: l.updated_at,
+  }
+}
 
-listsMap.set(amenitiesId, {
-  id: amenitiesId,
-  name: 'Amenities',
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-})
+function toItem(i: ApiItem): ListItem {
+  return {
+    id: String(i.id),
+    listId: String(i.list_id),
+    description: i.description,
+    value: i.value,
+    position: i.position,
+    createdAt: i.created_at,
+  }
+}
 
-itemsMap.set(restaurantId, [
-  {
-    id: crypto.randomUUID(),
-    listId: restaurantId,
-    description: 'Mamamou',
-    value: 'Pasta #38 Ngo Duc Ke, just opened',
-    position: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: crypto.randomUUID(),
-    listId: restaurantId,
-    description: 'Propaganda',
-    value: '21 Ha Trung, D.1 — lunch only',
-    position: 2,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: crypto.randomUUID(),
-    listId: restaurantId,
-    description: 'Anan Saigon',
-    value: '89 Ton That Dam, D.1',
-    position: 3,
-    createdAt: new Date().toISOString(),
-  },
-])
-
-itemsMap.set(amenitiesId, [])
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  })
+  if (!res.ok) {
+    throw new Error(`${options?.method ?? 'GET'} ${path} failed: ${res.status}`)
+  }
+  if (res.status === 204) return undefined as T
+  return res.json()
+}
 
 export interface DataStore {
   listLists(): Promise<List[]>
@@ -59,83 +58,64 @@ export interface DataStore {
   deleteList(listId: string): Promise<void>
   listItems(listId: string): Promise<ListItem[]>
   addItem(listId: string, description: string, value: string): Promise<ListItem>
-  updateItem(itemId: string, patch: { description?: string; value?: string }): Promise<ListItem>
-  deleteItems(itemIds: string[]): Promise<void>
+  updateItem(
+    listId: string,
+    itemId: string,
+    patch: { description?: string; value?: string }
+  ): Promise<ListItem>
+  deleteItems(listId: string, itemIds: string[]): Promise<void>
 }
 
 export const dataStore: DataStore = {
   async listLists() {
-    await delay()
-    return Array.from(listsMap.values()).sort((a, b) =>
-      a.createdAt.localeCompare(b.createdAt)
-    )
+    const lists = await request<ApiList[]>('/lists')
+    return lists.map(toList)
   },
 
-  async createList(name?) {
-    await delay()
-    const id = crypto.randomUUID()
-    const now = new Date().toISOString()
-    const list: List = { id, name: name ?? 'Name Your List', createdAt: now, updatedAt: now }
-    listsMap.set(id, list)
-    itemsMap.set(id, [])
-    return list
+  async createList(name = 'Name Your List') {
+    const list = await request<ApiList>('/lists', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    })
+    return toList(list)
   },
 
   async renameList(listId, name) {
-    await delay()
-    const list = listsMap.get(listId)!
-    const updated = { ...list, name, updatedAt: new Date().toISOString() }
-    listsMap.set(listId, updated)
-    return updated
+    const list = await request<ApiList>(`/lists/${listId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    })
+    return toList(list)
   },
 
   async deleteList(listId) {
-    await delay()
-    listsMap.delete(listId)
-    itemsMap.delete(listId)
+    await request<void>(`/lists/${listId}`, { method: 'DELETE' })
   },
 
   async listItems(listId) {
-    await delay()
-    return (itemsMap.get(listId) ?? []).slice().sort((a, b) => a.position - b.position)
+    const items = await request<ApiItem[]>(`/lists/${listId}/items`)
+    return items.map(toItem).sort((a, b) => a.position - b.position)
   },
 
   async addItem(listId, description, value) {
-    await delay()
-    const existing = itemsMap.get(listId) ?? []
-    const maxPos = existing.reduce((m, i) => Math.max(m, i.position), 0)
-    const item: ListItem = {
-      id: crypto.randomUUID(),
-      listId,
-      description,
-      value,
-      position: maxPos + 1,
-      createdAt: new Date().toISOString(),
-    }
-    itemsMap.set(listId, [...existing, item])
-    return item
+    const item = await request<ApiItem>(`/lists/${listId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ description, value }),
+    })
+    return toItem(item)
   },
 
-  async updateItem(itemId, patch) {
-    await delay()
-    for (const [listId, items] of itemsMap.entries()) {
-      const idx = items.findIndex(i => i.id === itemId)
-      if (idx !== -1) {
-        const updated = { ...items[idx], ...patch }
-        const next = items.slice()
-        next[idx] = updated
-        itemsMap.set(listId, next)
-        return updated
-      }
-    }
-    throw new Error(`Item ${itemId} not found`)
+  async updateItem(listId, itemId, patch) {
+    const item = await request<ApiItem>(`/lists/${listId}/items/${itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    })
+    return toItem(item)
   },
 
-  async deleteItems(itemIds) {
-    await delay()
-    const idSet = new Set(itemIds)
-    for (const [listId, items] of itemsMap.entries()) {
-      itemsMap.set(listId, items.filter(i => !idSet.has(i.id)))
-    }
+  async deleteItems(listId, itemIds) {
+    await Promise.all(
+      itemIds.map(id => request<void>(`/lists/${listId}/items/${id}`, { method: 'DELETE' }))
+    )
   },
 }

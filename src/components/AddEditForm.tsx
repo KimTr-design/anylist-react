@@ -32,7 +32,7 @@ export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
   }
 
   return (
-    <div className="flex gap-3 items-end px-4 w-full">
+    <div className="flex flex-col sm:flex-row gap-3 sm:items-end px-4 w-full">
       <div className="flex flex-1 flex-col gap-2 min-w-0">
         <label className="text-base leading-[1.4] text-ink">Name</label>
         <input
@@ -56,7 +56,7 @@ export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
       </div>
       <button
         onClick={handleDone}
-        className="shrink-0 border border-[#767676] bg-surface-neutral text-ink rounded-lg px-3 py-3 text-base leading-none hover:bg-line transition-colors"
+        className="w-full sm:w-auto sm:shrink-0 border border-[#767676] bg-surface-neutral text-ink rounded-lg px-3 py-3 text-base leading-none hover:bg-line transition-colors"
       >
         Done
       </button>

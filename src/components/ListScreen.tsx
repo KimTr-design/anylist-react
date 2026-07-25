@@ -71,7 +71,7 @@ export default function ListScreen({ listId }: Props) {
 
   async function handleEditDone(description: string, value: string) {
     if (!editingItemId) return
-    const updated = await dataStore.updateItem(editingItemId, { description, value })
+    const updated = await dataStore.updateItem(listId, editingItemId, { description, value })
     setItems(prev => prev.map(i => (i.id === editingItemId ? updated : i)))
     setEditingItemId(null)
   }
@@ -107,7 +107,7 @@ export default function ListScreen({ listId }: Props) {
 
   async function handleConfirmRemove() {
     const ids = Array.from(selectedIds)
-    await dataStore.deleteItems(ids)
+    await dataStore.deleteItems(listId, ids)
     setItems(prev => prev.filter(i => !selectedIds.has(i.id)))
     setSelectedIds(new Set())
     setShowConfirmRemove(false)
@@ -141,9 +141,9 @@ export default function ListScreen({ listId }: Props) {
 
   return (
     <div className="relative w-full max-w-[640px]">
-      {/* Toolbar — absolutely overlaps the top, content has pt-[52px] to compensate */}
+      {/* Toolbar — flows naturally on mobile, absolute on desktop */}
       {showToolbar && (
-        <div className="absolute top-0 left-0 right-0 flex items-end h-[40px]">
+        <div className="sm:absolute sm:top-0 sm:left-0 sm:right-0 sm:flex sm:items-end sm:h-[40px] w-full">
           <ListToolbar
             mode={toolbarMode}
             itemCount={items.length}
@@ -157,8 +157,8 @@ export default function ListScreen({ listId }: Props) {
         </div>
       )}
 
-      {/* Content */}
-      <div className={`flex flex-col gap-3 ${showToolbar ? 'pt-[52px]' : ''}`}>
+      {/* Content — only needs top offset on desktop where toolbar is absolute */}
+      <div className={`flex flex-col gap-3 ${showToolbar ? 'sm:pt-[52px]' : ''}`}>
         {isEmpty && !isAdding ? (
           <EmptyState onAdd={handleStartAdd} />
         ) : (
