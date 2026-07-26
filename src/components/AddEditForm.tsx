@@ -4,13 +4,15 @@ import type { ListItem } from '../types'
 interface Props {
   mode: 'add' | 'edit'
   item?: ListItem
-  onDone: (description: string, value: string) => void
+  onDone: (description: string, value: string) => void | Promise<void>
   onCancel: () => void
 }
 
 export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
   const [description, setDescription] = useState(item?.description ?? '')
   const [value, setValue] = useState(item?.value ?? '')
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const nameRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -18,12 +20,20 @@ export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
     if (mode === 'edit') nameRef.current?.select()
   }, [mode])
 
-  function handleDone() {
+  async function handleDone() {
+    if (submittingRef.current) return
     if (!description.trim()) {
       nameRef.current?.focus()
       return
     }
-    onDone(description.trim(), value.trim())
+    submittingRef.current = true
+    setSubmitting(true)
+    try {
+      await onDone(description.trim(), value.trim())
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -42,6 +52,7 @@ export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
           value={description}
           onChange={e => setDescription(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={submitting}
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 min-w-0">
@@ -52,11 +63,13 @@ export default function AddEditForm({ mode, item, onDone, onCancel }: Props) {
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={submitting}
         />
       </div>
       <button
         onClick={handleDone}
-        className="w-full sm:w-auto sm:shrink-0 border border-[#767676] bg-surface-neutral text-ink rounded-lg px-3 py-3 text-base leading-none hover:bg-line transition-colors"
+        disabled={submitting}
+        className="w-full sm:w-auto sm:shrink-0 border border-[#767676] bg-surface-neutral text-ink rounded-lg px-3 py-3 text-base leading-none hover:bg-line transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         Done
       </button>
